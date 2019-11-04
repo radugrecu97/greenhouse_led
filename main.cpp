@@ -21,41 +21,61 @@ using namespace std;
 #include<iostream>
 #include<fstream>
 #include<string>
+#include<cstring>
 
-int main(){
-//   std::fstream fs;
-//
-//   fs.open("/sys/kernel/debug/omap_mux/gpmc_ad4");
-//   fs << "7";
-//   fs.close();
-//   fs.open("/sys/class/gpio/export");
-//   fs << "32";
-//   fs.close();
-//   fs.open("/sys/class/gpio/gpio32/direction");
-//   fs << "out";
-//   fs.close();
-//   fs.open("/sys/class/gpio/gpio32/value");
-//   fs << "1"; // "0" for off
-//   fs.close();
-   // select whether it is on, off or flash
+void set_light(unsigned int intensity)
+{
+    std::fstream fs;
     
-   FILE *fp;
-   
-   fp = popen("uname -a", "r");
-   char buffer [100];
-   
-    fscanf(fp,....);
+    fs.open("/sys/class/pwm/pwmchip1/pwm-1:1/period");
+    fs << "20000000";
+    fs.close();
+    
+    fs.open("/sys/class/pwm/pwmchip1/pwm-1:1/duty_cycle");
+    fs << to_string((int) (20000000 * (intensity/100.0)));
+    fs.close();
+    
+    fs.open("/sys/class/pwm/pwmchip1/pwm-1:1/enable");
+    fs << "1";
+    fs.close();
+}
 
-//   if (fp == NULL) perror ("Error opening file");
-//   else
-//   {
-//     while ( ! feof (fp) )
-//     {
-//       if ( fgets (buffer , 100 , fp) == NULL ) break;
-//       fputs (buffer , stdout);
-//     }
-//     fclose (fp);
-//   }
+int main(int argc, char *argv[]){
 
-   return 0;
+    // Parameter count check
+    if ((argc != 2))
+    {
+        cout << "Usage:" << argv[0] << " [light_intensity]\r\n";
+        cout << "light_intensity ranges from 0 to 100\r\n";
+        return -1;
+    }
+
+    // Parameter value check
+    int light_intensity = atoi(argv[1]);
+
+    if (((light_intensity < 0) || light_intensity > 100))
+        cout << "Invalid light intensity. Enter value from 0 to 100\r\n";
+    
+    char config[10];
+    FILE *fp;
+    
+    // configure port to PWM
+    fp = popen("config-pin -q P9_21", "r");
+    fscanf(fp, "%*s %*s %s", config);
+    fclose(fp);
+    
+    if (std::strcmp(config, "pwm"))
+    {
+        system("config-pin -a P9_21 pwm");
+    }
+    
+    // configure PWM channel
+    std::fstream fs;
+    fs.open("/sys/class/pwm/pwmchip1/export");
+    fs << "1";
+    fs.close();
+    
+    set_light(light_intensity);
+            
+    return 0;
 }
